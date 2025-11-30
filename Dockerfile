@@ -25,20 +25,48 @@ RUN apt-get update && \
 
 # Install Python deps
 COPY requirements.txt ./
+
 RUN pip install --upgrade pip && \
-    # Remove any stale torch pins in requirements.txt before install; then install with desired wheel source.
-    sed -e '/^torch==/d' -e '/^dgl==/d' -e '/^torchdata/d' requirements.txt > /tmp/reqs.txt && \
+    # Strip out torch / dgl / torchdata from bulk install; manage them manually
+    sed -e '/^torch/d' \
+        -e '/^dgl/d' \
+        -e '/^torchdata/d' requirements.txt > /tmp/reqs.txt && \
+    \
+    #############################################
+    # 1. Install torch first
+    #############################################
     pip install torch==${TORCH_VERSION} && \
+    \
+    #############################################
+    # 2. Install DGL (with or without custom wheel source)
+    #############################################
     if [ -n "${DGL_WHEEL_SRC}" ]; then \
         pip install --find-links ${DGL_WHEEL_SRC} ${DGL_PACKAGE}; \
     else \
         pip install ${DGL_PACKAGE}; \
     fi && \
-    if [ -n "${DGL_WHEEL_SRC}" ]; then \
-        pip install --find-links ${DGL_WHEEL_SRC} -r /tmp/reqs.txt; \
-    else \
-        pip install -r /tmp/reqs.txt; \
-    fi
+    \
+    #############################################
+    # 3. Install PyTorch Geometric stack from prebuilt wheels
+    #    (for torch==2.4.0 + cu124)
+    #############################################
+    pip install --find-links https://data.pyg.org/whl/torch-2.4.0+cu124.html \
+        torch-scatter==2.1.2 \
+        torch-sparse==0.6.18 \
+        torch-cluster==1.6.3 \
+        torch-spline-conv==1.2.2 \
+        torch-geometric==2.7.0 && \
+    \
+    #############################################
+    # 4. Install the rest of the requirements (no H2GB in there)
+    #############################################
+    pip install -r /tmp/reqs.txt && \
+    \
+    #############################################
+    # 5. Finally install H2GB, WITHOUT pulling its deps
+    #############################################
+    pip install --no-deps H2GB
+
 
 # Copy project
 COPY . .

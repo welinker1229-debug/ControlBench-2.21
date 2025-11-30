@@ -1,13 +1,14 @@
+# IMAGE_NAME := zjjjjj1905/controbench
 IMAGE_NAME := controbench
 CUDA_TAG   ?= cu124
 CPU_TAG    ?= cpu
 
 build:
 	docker build -t $(IMAGE_NAME):$(CUDA_TAG) \
-		--build-arg DGL_WHEEL_SRC=https://data.dgl.ai/wheels/cu124/repo.html \
-		--build-arg DGL_PACKAGE=dgl-cu124==2.4.0 \
+		--build-arg DGL_WHEEL_SRC=https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html \
+		--build-arg DGL_PACKAGE=dgl \
 		--build-arg TORCH_VERSION=2.4.0 .
-
+		
 build-no-cuda:
 	docker build -t $(IMAGE_NAME):$(CPU_TAG) \
 		--build-arg DGL_PACKAGE=dgl==1.1.3 \

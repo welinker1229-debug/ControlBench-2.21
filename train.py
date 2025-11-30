@@ -309,7 +309,7 @@ def train_single_trial(model_type, config, num_classes, train_graph, val_graph, 
     # Setup training
     loss_fn = _setup_loss_fn(train_labels, weighted=True, device=device)
     optimizer = optim.Adam(model.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3, verbose=False)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
     
     # Training loop
     best_val_f1 = 0
@@ -482,7 +482,8 @@ def train_model(model_type, dataset_name, custom_config=None):
         loss_fn = _setup_loss_fn(train_labels, weighted=weighted_loss, device=device)
         
         optimizer = optim.Adam(model.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5, verbose=True)
+        # verbose is deprecated; rely on manual logging instead
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=5)
         
         # Training loop with validation
         best_val_f1 = 0
