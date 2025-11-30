@@ -292,6 +292,16 @@ def train_single_trial(model_type, config, num_classes, train_graph, val_graph, 
     config.update(custom_config)
     
     # Initialize model
+    # Align feature dimensions with the loaded graph to avoid shape mismatches
+    if "feat" in train_graph.nodes["user"].data:
+        config['in_feats'] = train_graph.nodes["user"].data["feat"].shape[1]
+    edge_feat_dim = None
+    if "feat" in train_graph.edges["comment"].data:
+        edge_feat_dim = train_graph.edges["comment"].data["feat"].shape[1]
+    if edge_feat_dim is None and "feat" in train_graph.edges["user_comment_user"].data:
+        edge_feat_dim = train_graph.edges["user_comment_user"].data["feat"].shape[1]
+    if edge_feat_dim is not None:
+        config['edge_feats'] = edge_feat_dim
     model = utils.initialize_model(model_type, config, num_classes)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -458,6 +468,15 @@ def train_model(model_type, dataset_name, custom_config=None):
         # Update config with actual feature dimensions
         if "feat" in train_graph.nodes["post"].data:
             config['post_feats'] = train_graph.nodes["post"].data["feat"].shape[1]
+        if "feat" in train_graph.nodes["user"].data:
+            config['in_feats'] = train_graph.nodes["user"].data["feat"].shape[1]
+        edge_feat_dim = None
+        if "feat" in train_graph.edges["comment"].data:
+            edge_feat_dim = train_graph.edges["comment"].data["feat"].shape[1]
+        if edge_feat_dim is None and "feat" in train_graph.edges["user_comment_user"].data:
+            edge_feat_dim = train_graph.edges["user_comment_user"].data["feat"].shape[1]
+        if edge_feat_dim is not None:
+            config['edge_feats'] = edge_feat_dim
         
         # Initialize model
         model = utils.initialize_model(model_type, config, num_classes)
