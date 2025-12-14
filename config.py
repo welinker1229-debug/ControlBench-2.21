@@ -38,8 +38,17 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'dropout': [0.3, 0.5, 0.7],
         'hidden_size': [128, 256, 512],
         'n_layers': [2, 3, 4],
-        'aggregator_type': ['mean', 'pool', 'lstm'],  # ← Fixed: Use valid DGL aggregators
+        'aggregator_type': ['mean', 'pool', 'lstm'],
         'conversation_weight': [0.2, 0.3, 0.4]
+    },
+    'H2GFormer': {
+        'lr': [0.001, 0.0005],
+        'weight_decay': [1e-4, 1e-3],
+        'dropout': [0.2, 0.5],
+        'hidden_size': [128, 256],
+        'n_layers': [2, 3],
+        'num_heads': [4, 8],
+        'conversation_weight': [0.0] # H2G-Former handles context via attention
     }
 }
 
@@ -154,6 +163,14 @@ def get_config(model_name='RGCN', dataset_name='abortion'):
             'conversation_weight': 0.3,
             'use_parent_context': True,
         },
+
+        'H2GFormer': {
+            'description': 'H2G-Former: Sparse Graph Transformer (Local Attention)',
+            'num_heads': 4,
+            'n_layers': 2,
+            'conversation_weight': 0.0,
+            'use_parent_context': False, # Handles context via Sparse Attention
+        }
     }
     
     # Get and apply model-specific settings

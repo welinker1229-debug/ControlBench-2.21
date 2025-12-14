@@ -9,6 +9,7 @@ from models import (
     HANNodeClassifier, 
     HGTNodeClassifier,
     HinSAGENodeClassifier,
+    H2GFormerNodeClassifier,
 )
 
 def set_seeds(seed=42):
@@ -191,6 +192,19 @@ def initialize_model(model_type, config, num_classes):
             dropout=config['dropout'],
             n_layers=config['n_layers'],
             aggregator_type=config.get('aggregator_type', 'mean'),
+            post_feats=post_feats,
+            use_parent_context=use_parent_context,
+            conversation_weight=conversation_weight
+        )
+    elif model_type == "H2GFormer":
+        model = H2GFormerNodeClassifier(
+            in_feats=in_feats,
+            edge_feats=edge_feats,
+            hidden_size=config['hidden_size'],
+            out_classes=num_classes,
+            dropout=config['dropout'],
+            n_layers=config['n_layers'],
+            num_heads=config.get('num_heads', 4),
             post_feats=post_feats,
             use_parent_context=use_parent_context,
             conversation_weight=conversation_weight

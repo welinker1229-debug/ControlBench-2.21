@@ -3,6 +3,7 @@ from .rgcn import RGCNNodeClassifier
 from .han import HANNodeClassifier
 from .hgt import HGTNodeClassifier
 from .hinsage import HinSAGENodeClassifier
+from .h2gformer import H2GFormerNodeClassifier
 # from .edge_features import HierarchicalConversationEncoder
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     'HANNodeClassifier',
     'HGTNodeClassifier',
     'HinSAGENodeClassifier',
-    # 'HierarchicalConversationEncoder'
+    # 'HierarchicalConversationEncoder,'
+    'H2GFormerNodeClassifier',
 ]

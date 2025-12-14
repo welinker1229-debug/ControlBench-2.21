@@ -295,13 +295,17 @@ def train_single_trial(model_type, config, num_classes, train_graph, val_graph, 
     # Align feature dimensions with the loaded graph to avoid shape mismatches
     if "feat" in train_graph.nodes["user"].data:
         config['in_feats'] = train_graph.nodes["user"].data["feat"].shape[1]
-    edge_feat_dim = None
+    if "feat" in train_graph.nodes["post"].data:
+        config['post_feats'] = train_graph.nodes["post"].data["feat"].shape[1]
+    edge_feat_dims = []
     if "feat" in train_graph.edges["comment"].data:
-        edge_feat_dim = train_graph.edges["comment"].data["feat"].shape[1]
-    if edge_feat_dim is None and "feat" in train_graph.edges["user_comment_user"].data:
-        edge_feat_dim = train_graph.edges["user_comment_user"].data["feat"].shape[1]
-    if edge_feat_dim is not None:
-        config['edge_feats'] = edge_feat_dim
+        edge_feat_dims.append(train_graph.edges["comment"].data["feat"].shape[1])
+    if "feat" in train_graph.edges["user_comment_user"].data:
+        edge_feat_dims.append(train_graph.edges["user_comment_user"].data["feat"].shape[1])
+    if "parent_feat" in train_graph.edges["user_comment_user"].data:
+        edge_feat_dims.append(train_graph.edges["user_comment_user"].data["parent_feat"].shape[1])
+    if edge_feat_dims:
+        config['edge_feats'] = max(edge_feat_dims)
     model = utils.initialize_model(model_type, config, num_classes)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -470,13 +474,15 @@ def train_model(model_type, dataset_name, custom_config=None):
             config['post_feats'] = train_graph.nodes["post"].data["feat"].shape[1]
         if "feat" in train_graph.nodes["user"].data:
             config['in_feats'] = train_graph.nodes["user"].data["feat"].shape[1]
-        edge_feat_dim = None
+        edge_feat_dims = []
         if "feat" in train_graph.edges["comment"].data:
-            edge_feat_dim = train_graph.edges["comment"].data["feat"].shape[1]
-        if edge_feat_dim is None and "feat" in train_graph.edges["user_comment_user"].data:
-            edge_feat_dim = train_graph.edges["user_comment_user"].data["feat"].shape[1]
-        if edge_feat_dim is not None:
-            config['edge_feats'] = edge_feat_dim
+            edge_feat_dims.append(train_graph.edges["comment"].data["feat"].shape[1])
+        if "feat" in train_graph.edges["user_comment_user"].data:
+            edge_feat_dims.append(train_graph.edges["user_comment_user"].data["feat"].shape[1])
+        if "parent_feat" in train_graph.edges["user_comment_user"].data:
+            edge_feat_dims.append(train_graph.edges["user_comment_user"].data["parent_feat"].shape[1])
+        if edge_feat_dims:
+            config['edge_feats'] = max(edge_feat_dims)
         
         # Initialize model
         model = utils.initialize_model(model_type, config, num_classes)
