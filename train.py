@@ -21,7 +21,7 @@ from models import (
     HGTNodeClassifier,
     HinSAGENodeClassifier
 )
-from config import get_config, print_config
+from config import get_config, print_config, get_hyperparameter_search_space
 from datasets import load_3way_split_graph_data
 import utils
 
@@ -733,7 +733,8 @@ if __name__ == "__main__":
     
     if args.hyperparameter_search:
         print(f"🔍 Running hyperparameter search for {args.model} on {args.dataset}")
-        best_config, results_df = hyperparameter_search(args.model, args.dataset)
+        search_space = get_hyperparameter_search_space(args.model)
+        best_config, results_df = hyperparameter_search(args.model, args.dataset, search_space=search_space)
         if best_config:
             print(f"\n🎯 Now running full training with best configuration...")
             train_model(args.model, args.dataset)

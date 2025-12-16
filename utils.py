@@ -206,8 +206,11 @@ def initialize_model(model_type, config, num_classes):
             n_layers=config['n_layers'],
             num_heads=config.get('num_heads', 4),
             post_feats=post_feats,
-            use_parent_context=use_parent_context,
-            conversation_weight=conversation_weight
+            use_parent_context=config.get('use_parent_context', False),
+            conversation_weight=config.get('conversation_weight', 0.0),
+            num_classes=config.get('num_classes', None),
+            use_label_emb=config.get('use_label_emb', False),
+            num_hops=config.get('num_hops', 1)
         )
     else:
         raise ValueError(f"Unknown model type: {model_type}")

@@ -48,7 +48,9 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'hidden_size': [128, 256],
         'n_layers': [2, 3],
         'num_heads': [4, 8],
-        'conversation_weight': [0.0] # H2G-Former handles context via attention
+        'conversation_weight': [0.0], # H2G-Former handles context via attention
+        'use_label_emb': [False],     # keep off unless you wire labels into forward
+        'num_hops': [1, 2]            # multi-hop attention
     }
 }
 
@@ -165,11 +167,13 @@ def get_config(model_name='RGCN', dataset_name='abortion'):
         },
 
         'H2GFormer': {
-            'description': 'H2G-Former: Sparse Graph Transformer (Local Attention)',
+            'description': 'H2G-Former: Sparse Graph Transformer',
             'num_heads': 4,
             'n_layers': 2,
             'conversation_weight': 0.0,
             'use_parent_context': False, # Handles context via Sparse Attention
+            'use_label_emb': False,      
+            'num_hops': 1,               
         }
     }
     
@@ -319,7 +323,7 @@ if __name__ == "__main__":
     import sys
     
     # Default values
-    model = "RGCN"
+    model = "H2GFormer"
     dataset = "abortion"  # Use conversation-aware dataset as default
     
     # Manual argument parsing
