@@ -43,9 +43,9 @@ HYPERPARAMETER_SEARCH_SPACES = {
     },
     'H2GFormer': {
         'lr': [],
-        'weight_decay': [1e-5, 1e-4, 1e-3],
-        'dropout': [0.3], # [0.1, 0.3, 0.5],
-        'hidden_size': [256], # [128, 256, 512],
+        'weight_decay': [],
+        'dropout': [0.1, 0.3, 0.5],
+        'hidden_size': [128, 256, 512],
         'n_layers': [2], # [1, 2, 3, 4],
         'num_heads': [4], # [2, 4, 8, 16],
         'conversation_weight': [0.0],
