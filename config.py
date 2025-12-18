@@ -69,17 +69,16 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
         raise ValueError(f"Unknown model for hyperparameter search: {model_name}")
     
     search_space = HYPERPARAMETER_SEARCH_SPACES[model_name].copy()
+    curr_params = {
+        "abortion": {"lr": [0.001], "weight_decay": [1e-5]},
+        "capitalism": {"lr": [0.01]}, "weight_decay": [1e-5],
+        "lgbtq": {"lr": [0.0001], "weight_decay": [1e-5]},
+        "religion":  {"lr": [0.01], "weight_decay": [1e-5]},
+        "trump": {"lr": [0.01], "weight_decay": [0.001]}
+    }
     if model_name == "H2GFormer":
-        if dataset_name == "abortion":
-            search_space["lr"] = [0.001]
-        elif dataset_name == "capitalism":
-            search_space["lr"] = [0.01]
-        elif dataset_name == "lgbtq":
-            search_space["lr"] = [0.0001]
-        elif dataset_name == "religion":
-            search_space["lr"] = [0.01]
-        elif search_space == "trump":
-            search_space["lr"] = [0.01]
+        if dataset_name:
+            search_space.update(curr_params[dataset_name])
 
     # Remove conversation parameters for non-conversation datasets
     if dataset_name and not is_conversation_aware_dataset(dataset_name):

@@ -15,10 +15,16 @@ build-no-cuda:
 		--build-arg TORCH_VERSION=2.0.1 .
 
 bash:
-	docker run --gpus all -it --rm $(IMAGE_NAME):$(CUDA_TAG) bash
+	docker run --gpus all -it --rm \
+		-v "$(CURDIR)":/app \
+		-w /app \
+		$(IMAGE_NAME):$(CUDA_TAG) bash
 
 bash-no-cuda:
-	docker run -it --rm $(IMAGE_NAME):$(CPU_TAG) bash
+	docker run -it --rm \
+		-v "$(CURDIR)":/app \
+		-w /app \
+		$(IMAGE_NAME):$(CPU_TAG) bash
 
 clean:
 	-docker image rm -f $(IMAGE_NAME):$(CUDA_TAG) $(IMAGE_NAME):$(CPU_TAG)
