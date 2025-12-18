@@ -42,15 +42,15 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'conversation_weight': [0.2, 0.3, 0.4]
     },
     'H2GFormer': {
-        'lr': [0.001, 0.0005],
-        'weight_decay': [1e-4, 1e-3],
-        'dropout': [0.2, 0.5],
-        'hidden_size': [128, 256],
-        'n_layers': [2, 3],
-        'num_heads': [4, 8],
-        'conversation_weight': [0.0], # H2G-Former handles context via attention
-        'use_label_emb': [False],     # keep off unless you wire labels into forward
-        'num_hops': [1, 2]            # multi-hop attention
+        'lr': [0.01, 0.005, 0.001, 5e-4, 1e-4],
+        'weight_decay': [1e-5], # [1e-5, 1e-4, 1e-3]
+        'dropout': [0.3], # [0.1, 0.3, 0.5]
+        'hidden_size': [256], # [128, 256, 512]
+        'n_layers': [2], # [1, 2, 3, 4]
+        'num_heads': [4], # [2, 4, 8, 16]
+        'conversation_weight': [0.0],
+        'use_label_emb': [False],
+        'num_hops': [1] # [1, 2]
     }
 }
 
