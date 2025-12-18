@@ -42,15 +42,15 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'conversation_weight': [0.2, 0.3, 0.4]
     },
     'H2GFormer': {
-        'lr': [0.01, 0.005, 0.001, 5e-4, 1e-4],
-        'weight_decay': [1e-5], # [1e-5, 1e-4, 1e-3]
-        'dropout': [0.3], # [0.1, 0.3, 0.5]
-        'hidden_size': [256], # [128, 256, 512]
-        'n_layers': [2], # [1, 2, 3, 4]
-        'num_heads': [4], # [2, 4, 8, 16]
+        'lr': [],
+        'weight_decay': [1e-5, 1e-4, 1e-3],
+        'dropout': [0.3], # [0.1, 0.3, 0.5],
+        'hidden_size': [256], # [128, 256, 512],
+        'n_layers': [2], # [1, 2, 3, 4],
+        'num_heads': [4], # [2, 4, 8, 16],
         'conversation_weight': [0.0],
         'use_label_emb': [False],
-        'num_hops': [1] # [1, 2]
+        'num_hops': [1] # [1, 2],
     }
 }
 
@@ -69,7 +69,18 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
         raise ValueError(f"Unknown model for hyperparameter search: {model_name}")
     
     search_space = HYPERPARAMETER_SEARCH_SPACES[model_name].copy()
-    
+    if model_name == "H2GFormer":
+        if dataset_name == "abortion":
+            search_space["lr"] = [0.001]
+        elif dataset_name == "capitalism":
+            search_space["lr"] = [0.01]
+        elif dataset_name == "lgbtq":
+            search_space["lr"] = [0.0001]
+        elif dataset_name == "religion":
+            search_space["lr"] = [0.01]
+        elif search_space == "trump":
+            search_space["lr"] = [0.01]
+
     # Remove conversation parameters for non-conversation datasets
     if dataset_name and not is_conversation_aware_dataset(dataset_name):
         search_space.pop('conversation_weight', None)
