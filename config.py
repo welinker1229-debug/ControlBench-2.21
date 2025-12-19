@@ -42,15 +42,15 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'conversation_weight': [0.2, 0.3, 0.4]
     },
     'H2GFormer': {
-        'lr': [0.01, 0.005, 0.001, 5e-4, 1e-4], #[0.01, 0.005, 0.001, 5e-4, 1e-4]
-        'weight_decay': [1e-5, 1e-4, 1e-3],
-        'dropout': [0.1, 0.3, 0.5],
+        'lr': [], # [0.01, 0.005, 0.001, 5e-4, 1e-4]
+        'weight_decay': [], # [1e-5, 1e-4, 1e-3],
+        'dropout': [], # [0.1, 0.3, 0.5],
         'hidden_size': [512], # [128, 256, 512],
-        'n_layers': [2], # [1, 2, 3, 4],
-        'num_heads': [4], # [2, 4, 8, 16],
+        'n_layers': [1, 2, 3, 4],
+        'num_heads': [2, 4, 8, 16],
         'conversation_weight': [0.0],
         'use_label_emb': [False],
-        'num_hops': [1]  # [1, 2]
+        'num_hops': [1, 2]
     }
 }
 
@@ -70,11 +70,11 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
     
     search_space = HYPERPARAMETER_SEARCH_SPACES[model_name].copy()
     curr_params = {
-        # "abortion": {"lr": [0.001], "weight_decay": [1e-5]},
-        # "capitalism": {"lr": [0.01], "weight_decay": [1e-5]},
-        # "lgbtq": {"lr": [0.0001], "weight_decay": [1e-5]},
-        # "religion":  {"lr": [0.01], "weight_decay": [1e-5]},
-        # "trump": {"lr": [0.01], "weight_decay": [0.001]}
+        "abortion": {"lr": [0.001], "weight_decay": [1e-5], "dropout": [0.5], "hidden_size": [512]},
+        "capitalism": {"lr": [0.005], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]},
+        "lgbtq": {"lr": [0.01], "weight_decay": [1e-3], "dropout": [0.3], "hidden_size": [512]},
+        "religion":  {"lr": [0.005], "weight_decay": [1e-4], "dropout": [0.5], "hidden_size": [512]},
+        "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]}
     }
     if model_name == "H2GFormer":
         if dataset_name in curr_params:
