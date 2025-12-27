@@ -27,10 +27,12 @@ RUN apt-get update && \
 COPY requirements.txt ./
 
 RUN pip install --upgrade pip && \
-    # Strip out torch / dgl / torchdata from bulk install; manage them manually
+    # Strip out torch/dgl/torchdata to manage manually.
+    # ALSO strip out simcse to prevent "scipy<1.6" dependency crash.
     sed -e '/^torch/d' \
         -e '/^dgl/d' \
-        -e '/^torchdata/d' requirements.txt > /tmp/reqs.txt && \
+        -e '/^torchdata/d' \
+        -e '/^simcse/d' requirements.txt > /tmp/reqs.txt && \
     \
     #############################################
     # 1. Install torch first
@@ -58,13 +60,15 @@ RUN pip install --upgrade pip && \
         torch-geometric==2.7.0 && \
     \
     #############################################
-    # 4. Install the rest of the requirements (no H2GB in there)
+    # 4. Install the rest of the requirements
     #############################################
     pip install -r /tmp/reqs.txt && \
     \
     #############################################
-    # 5. Finally install H2GB, WITHOUT pulling its deps
+    # 5. Install SimCSE and H2GB, WITHOUT pulling deps
+    #    (SimCSE requires this to bypass scipy version check)
     #############################################
+    pip install --no-deps simcse==0.4 && \
     pip install --no-deps H2GB
 
 

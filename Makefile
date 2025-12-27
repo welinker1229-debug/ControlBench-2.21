@@ -1,5 +1,5 @@
 # IMAGE_NAME := zjjjjj1905/controbench
-IMAGE_NAME := controbench
+IMAGE_NAME := controbenchv2
 CUDA_TAG   ?= cu124
 CPU_TAG    ?= cpu
 

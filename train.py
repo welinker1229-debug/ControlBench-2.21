@@ -22,7 +22,7 @@ from models import (
     HinSAGENodeClassifier
 )
 from config import get_config, print_config, get_hyperparameter_search_space
-from datasets import load_3way_split_graph_data
+from datasets_ import load_3way_split_graph_data
 import utils
 
 # Constants

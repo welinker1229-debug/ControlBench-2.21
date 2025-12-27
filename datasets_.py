@@ -2,7 +2,6 @@ import torch
 import dgl
 import json
 import numpy as np
-from collections import Counter
 import random
 
 # Set all random seeds for deterministic behavior
