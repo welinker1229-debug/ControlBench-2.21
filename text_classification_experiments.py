@@ -10,10 +10,8 @@ import os
 import random
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
-from collections import Counter, defaultdict
+from typing import Dict, List, Tuple
 import warnings
-import itertools
 warnings.filterwarnings('ignore')
 
 # Core ML libraries
