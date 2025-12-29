@@ -3,6 +3,12 @@ Enhanced configuration settings for conversation-aware GNN models with hyperpara
 This file centralizes all hyperparameters and model configurations including
 conversation-aware parameters and hyperparameter search spaces for proper tuning.
 """
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
 # Define hyperparameter search spaces for each model type
 HYPERPARAMETER_SEARCH_SPACES = {

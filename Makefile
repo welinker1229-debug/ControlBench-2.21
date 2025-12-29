@@ -1,15 +1,18 @@
+-include .env
+export
+
 # IMAGE_NAME := zjjjjj1905/controbench
 IMAGE_NAME := controbenchv3
 
 build:
-	docker build --no-cache -t $(IMAGE_NAME):gpu \
+	docker build -t $(IMAGE_NAME):gpu \
 		--build-arg DGL_WHEEL_SRC=https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html \
 		--build-arg DGL_PACKAGE=dgl \
 		--build-arg TORCH_VERSION=2.4.0 \
 		.
 		
 build-no-cuda:
-	docker build --no-cache -t $(IMAGE_NAME):cpu \
+	docker build -t $(IMAGE_NAME):cpu \
 		--build-arg TORCH_VERSION=2.4.0 \
 		--build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu \
 		--build-arg DGL_PACKAGE=dgl==2.4.0 \

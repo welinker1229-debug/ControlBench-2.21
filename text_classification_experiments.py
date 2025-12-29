@@ -4,11 +4,13 @@ Text Classification Experiments with Train/Val/Test Split (60:20:20)
 - Final training on (train + val) and a single evaluation on test.
 """
 
+from datetime import datetime
 import json
 import os
 import random
 import numpy as np
 import pandas as pd
+import time
 from typing import Dict, List, Tuple
 import warnings
 
@@ -65,9 +67,7 @@ try:
 except Exception as e:
     print(f"❌ Sentence-Transformers not available: {e}")
 
-import matplotlib.pyplot as plt
-from datetime import datetime
-import time
+from generate_embeddings import generate_embeddings_with_model, MODEL_CONFIG
 
 
 def set_seed(seed=42):
@@ -577,167 +577,100 @@ class TextClassificationExperiments:
             self.results["SBERT"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
 
     # ---------------- QWEN ----------------
+
     def tune_qwen_experiment(self, X_train, X_val, X_test, y_train, y_val, y_test):
         import os
 
         for key in ['REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE', 'CURL_CA_BUNDLE']:
             if key in os.environ:
                 del os.environ[key]
-                
+
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
         try:
-            import transformers
-            import json
-            from transformers import AutoTokenizer, AutoModel, AutoConfig
-            from transformers.utils import cached_file
-        except ImportError:
-            self.log_result("\n❌ Transformers library not available (pip install transformers)")
-            self.results["QWEN"] = {"accuracy": 0.0, "error": "Transformers missing"}
-            return
-
-        try:
-            best_score, best_params, best_embeddings = 0, None, None
-            model_name = "Qwen/Qwen3-Embedding-8B"
-
-            self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
+            self.log_hyperparams("Loading QWen model...")
+            self.log_hyperparams("Encoding train and validation texts...")
             
-            try:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                if device == "cpu":
-                    self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
+            # Generate embeddings for train and val
+            X_train_embeddings = generate_embeddings_with_model("qwen", X_train)
+            X_val_embeddings = generate_embeddings_with_model("qwen", X_val)
 
-                # --- 1. Config Patching ---
-                try:
-                    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-                except (ValueError, KeyError, EnvironmentError):
-                    self.log_hyperparams("   ⚠️ AutoConfig failed on 'qwen3'. Patching config to 'qwen2'...")
-                    config_path = cached_file(model_name, "config.json")
-                    with open(config_path, 'r') as f:
-                        config_dict = json.load(f)
-                    
-                    if 'model_type' in config_dict:
-                        config_dict.pop('model_type') 
-                    
-                    config = AutoConfig.for_model("qwen2", **config_dict)
+            if hasattr(X_train_embeddings, 'cpu'):
+                X_train_embeddings = X_train_embeddings.cpu().numpy()
+                X_val_embeddings = X_val_embeddings.cpu().numpy()
 
-                # --- 2. Tokenizer ---
-                tokenizer = AutoTokenizer.from_pretrained(
-                    model_name, 
-                    trust_remote_code=True, 
-                    use_fast=False, 
-                    padding_side="right"
-                )
-                
-                # --- 3. Model ---
-                torch_dtype = torch.float16 if device == "cuda" else torch.float32
-                
-                model = AutoModel.from_pretrained(
-                    model_name, 
-                    config=config,
-                    trust_remote_code=True, 
-                    torch_dtype=torch_dtype
-                ).to(device)
-                model.eval()
-
-                # --- 4. Encoding Helper ---
-                def encode_texts(texts, batch_size=4): 
-                    all_embs = []
-                    for i in range(0, len(texts), batch_size):
-                        batch = texts[i : i + batch_size]
-                        
-                        inputs = tokenizer(
-                            batch, 
-                            padding=True, 
-                            truncation=True, 
-                            max_length=512, 
-                            return_tensors="pt"
-                        ).to(device)
-
-                        with torch.no_grad():
-                            outputs = model(**inputs)
-                            token_embeddings = outputs.last_hidden_state
-                            attention_mask = inputs.attention_mask
-
-                            input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-                            sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
-                            sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-                            embs = sum_embeddings / sum_mask
-                            
-                            embs = torch.nn.functional.normalize(embs, p=2, dim=1)
-                            all_embs.append(embs.cpu().numpy())
-                            
-                    return np.concatenate(all_embs, axis=0)
-
-                # --- 5. Execution ---
-                self.log_hyperparams("   Encoding Train (Custom Batcher)...")
-                X_train_emb = encode_texts(X_train)
-                self.log_hyperparams("   Encoding Val (Custom Batcher)...")
-                X_val_emb = encode_texts(X_val)
-
-            except Exception as e:
-                self.log_hyperparams(f"   ❌ Fatal error loading/encoding Qwen 3: {e}")
-                self.results["QWEN"] = {"accuracy": 0.0, "error": str(e)}
-                return
-
-            # --- 6. Classification ---
-            classifier_configs = [
-                {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
-                {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
-                {'C': 10.0, 'solver': 'liblinear', 'max_iter': 1000, 'class_weight': 'balanced'},
-                {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 2000, 'class_weight': None},
+            param_combinations = [
+                (1.0, 'lbfgs', 1000, 'balanced'),
+                (0.1, 'saga', 1000, 'balanced'),
+                (10.0, 'liblinear', 1000, 'balanced'),
+                (1.0, 'saga', 2000, None),
+                (0.01, 'lbfgs', 1000, 'balanced'),
             ]
 
-            for config in classifier_configs:
-                clf = LogisticRegression(random_state=42, **config)
-                clf.fit(X_train_emb, y_train)
-                y_pred_val = clf.predict(X_val_emb)
+            best_score, best_params = 0, None
+            self.log_hyperparams(f"Testing {len(param_combinations)} QWen classifier configurations...")
 
-                val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
-                val_acc = accuracy_score(y_val, y_pred_val)
+            for i, (C, solver, max_iter, class_weight) in enumerate(param_combinations):
+                try:
+                    clf = LogisticRegression(random_state=42, C=C, solver=solver, max_iter=max_iter,
+                                             class_weight=class_weight)
+                    clf.fit(X_train_embeddings, y_train)
+                    y_pred_val = clf.predict(X_val_embeddings)
 
-                self.log_hyperparams(f"   Config {config}: F1={val_f1_macro:.4f}, Acc={val_acc:.4f}")
+                    val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
+                    val_acc = accuracy_score(y_val, y_pred_val)
 
-                if val_f1_macro > best_score:
-                    best_score = val_f1_macro
-                    best_params = {'classifier_config': config}
-                    if best_embeddings is None:
-                         self.log_hyperparams("   Encoding Test (Custom Batcher)...")
-                         X_test_emb = encode_texts(X_test)
-                         best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
+                    self.log_hyperparams(
+                        f"Config {i + 1}: C={C}, solver={solver}, max_iter={max_iter}, class_weight={class_weight}")
+                    self.log_hyperparams(f"   Validation F1: {val_f1_macro:.4f}, Accuracy: {val_acc:.4f}")
+
+                    if val_f1_macro > best_score:
+                        best_score = val_f1_macro
+                        best_params = {'C': C, 'solver': solver, 'max_iter': max_iter, 'class_weight': class_weight}
+                except Exception as e:
+                    self.log_hyperparams(f"   Error: {e}")
+                    continue
 
             if best_params is None:
-                self.log_result("\n❌ QWEN hyperparameter tuning failed")
-                self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Tuning failed"}
+                self.log_result("\n❌ QWen hyperparameter tuning failed")
+                self.results["QWen"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Tuning failed"}
                 return
 
-            self.log_hyperparams(f"\n🏆 Best QWEN parameters:")
-            for k, v in best_params['classifier_config'].items():
+            self.log_hyperparams("\n🏆 Best QWen parameters:")
+            for k, v in best_params.items():
                 self.log_hyperparams(f"   {k}: {v}")
             self.log_hyperparams(f"   Validation F1: {best_score:.4f}")
 
-            self.log_result("\n6. QWEN Classification (Hyperparameter Tuned)")
-            self.log_result("-" * 57)
+            # Generate test embeddings only after finding best hyperparameters (saves API calls)
+            self.log_hyperparams("Encoding test texts for final evaluation...")
+            X_test_embeddings = generate_embeddings_with_model("qwen", X_test)
+            if hasattr(X_test_embeddings, 'cpu'):
+                X_test_embeddings = X_test_embeddings.cpu().numpy()
 
-            if best_embeddings is None or 'test' not in best_embeddings:
-                 X_test_emb = encode_texts(X_test)
-                 best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
+            # Final training: combine train+val for training, evaluate on test
+            self.log_result("\n6. QWen Classification (Hyperparameter Tuned)")
+            self.log_result("-" * 47)
+            self.log_result("Training final QWen classifier on train+val with best hyperparameters...")
+            
+            # Combine train and val embeddings for final training
+            X_trval_embeddings = np.vstack([X_train_embeddings, X_val_embeddings])
+            y_trval = y_train + y_val
 
-            final_classifier = LogisticRegression(random_state=42, **best_params['classifier_config'])
-            final_classifier.fit(best_embeddings['train'], y_train)
-            y_pred = final_classifier.predict(best_embeddings['test'])
+            final_clf = LogisticRegression(random_state=42, **best_params)
+            final_clf.fit(X_trval_embeddings, y_trval)
+            y_pred = final_clf.predict(X_test_embeddings)
 
             acc = accuracy_score(y_test, y_pred)
             f1_macro = f1_score(y_test, y_pred, average='macro', zero_division=0)
             f1_micro = f1_score(y_test, y_pred, average='micro', zero_division=0)
 
-            self.log_result(f"Best classifier config: {best_params['classifier_config']}")
+            self.log_result(f"Best hyperparameters: {best_params}")
             self.log_result(f"Test Accuracy: {acc:.4f}")
             self.log_result(f"Test Macro F1: {f1_macro:.4f}")
             self.log_result(f"Test Micro F1: {f1_micro:.4f}")
 
-            self.results["QWEN"] = {
+            self.results["QWen"] = {
                 "accuracy": acc, "macro_f1": f1_macro, "micro_f1": f1_micro,
                 "best_params": best_params, "validation_f1": best_score
             }
@@ -746,8 +679,8 @@ class TextClassificationExperiments:
             self.log_result(f"\nDetailed Classification Report:\n{report}")
 
         except Exception as e:
-            self.log_result(f"❌ Error in QWEN experiment: {str(e)}")
-            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
+            self.log_result(f"❌ Error in QWen experiment: {str(e)}")
+            self.results["QWen"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
 
     # ---------------- Transformers (BERT/RoBERTa) ----------------
 
@@ -1209,12 +1142,12 @@ def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
             experiments = TextClassificationExperiments(dataset_name)
             experiment_folders.append(experiments.experiment_dir)
 
-            # experiments.run_baseline_experiments(X_train, X_val, X_test, y_train, y_val, y_test)
-            # experiments.tune_tfidf_logistic_regression(X_train, X_val, X_test, y_train, y_val, y_test)
-            # experiments.tune_simcse_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
-            # experiments.tune_sentence_bert_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
+            experiments.run_baseline_experiments(X_train, X_val, X_test, y_train, y_val, y_test)
+            experiments.tune_tfidf_logistic_regression(X_train, X_val, X_test, y_train, y_val, y_test)
+            experiments.tune_simcse_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
+            experiments.tune_sentence_bert_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
             experiments.tune_qwen_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
-            # experiments.run_transformer_experiments(X_train, X_val, X_test, y_train, y_val, y_test, labels)
+            experiments.run_transformer_experiments(X_train, X_val, X_test, y_train, y_val, y_test, labels)
 
             experiments.create_results_summary()
             all_results[dataset_name] = experiments.results
