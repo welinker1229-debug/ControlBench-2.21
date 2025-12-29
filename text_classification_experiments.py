@@ -608,6 +608,7 @@ class TextClassificationExperiments:
                 if device == "cpu":
                     self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
 
+                # --- 1. Config Patching ---
                 try:
                     config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
                 except (ValueError, KeyError, EnvironmentError):
@@ -621,6 +622,7 @@ class TextClassificationExperiments:
                     
                     config = AutoConfig.for_model("qwen2", **config_dict)
 
+                # --- 2. Tokenizer ---
                 tokenizer = AutoTokenizer.from_pretrained(
                     model_name, 
                     trust_remote_code=True, 
@@ -628,6 +630,7 @@ class TextClassificationExperiments:
                     padding_side="right"
                 )
                 
+                # --- 3. Model ---
                 torch_dtype = torch.float16 if device == "cuda" else torch.float32
                 
                 model = AutoModel.from_pretrained(
@@ -638,6 +641,7 @@ class TextClassificationExperiments:
                 ).to(device)
                 model.eval()
 
+                # --- 4. Encoding Helper ---
                 def encode_texts(texts, batch_size=4): 
                     all_embs = []
                     for i in range(0, len(texts), batch_size):
@@ -666,9 +670,10 @@ class TextClassificationExperiments:
                             
                     return np.concatenate(all_embs, axis=0)
 
-                self.log("   Encoding Train (Custom Batcher)...")
+                # --- 5. Execution ---
+                self.log_hyperparams("   Encoding Train (Custom Batcher)...")
                 X_train_emb = encode_texts(X_train)
-                self.log("   Encoding Val (Custom Batcher)...")
+                self.log_hyperparams("   Encoding Val (Custom Batcher)...")
                 X_val_emb = encode_texts(X_val)
 
             except Exception as e:
@@ -676,6 +681,7 @@ class TextClassificationExperiments:
                 self.results["QWEN"] = {"accuracy": 0.0, "error": str(e)}
                 return
 
+            # --- 6. Classification ---
             classifier_configs = [
                 {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
                 {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
@@ -697,7 +703,7 @@ class TextClassificationExperiments:
                     best_score = val_f1_macro
                     best_params = {'classifier_config': config}
                     if best_embeddings is None:
-                         self.log("   Encoding Test (Custom Batcher)...")
+                         self.log_hyperparams("   Encoding Test (Custom Batcher)...")
                          X_test_emb = encode_texts(X_test)
                          best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
 
