@@ -587,10 +587,10 @@ class TextClassificationExperiments:
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
+        # Local imports to ensure availability
         try:
-            import transformers
             import json
-            from transformers import AutoTokenizer, AutoModel, AutoConfig, PretrainedConfig
+            from transformers import AutoTokenizer, AutoModel, AutoConfig
             from transformers.utils import cached_file
         except ImportError:
             self.log_result("\n❌ Transformers library not available (pip install transformers)")
@@ -610,34 +610,21 @@ class TextClassificationExperiments:
                     self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
 
                 # 1. Config Patching Strategy
-                # We attempt to load standard config. If it fails (unknown arch 'qwen3'), 
-                # we download the json, change type to 'qwen2', and instantiate Qwen2Config manually.
                 try:
                     config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
                 except (ValueError, KeyError, EnvironmentError):
                     self.log_hyperparams("   ⚠️ AutoConfig failed on 'qwen3'. Patching config to 'qwen2'...")
                     
-                    # Fetch raw config dict
+                    # Fetch raw config file
                     config_path = cached_file(model_name, "config.json")
                     with open(config_path, 'r') as f:
                         config_dict = json.load(f)
-                    config_dict['model_type'] = 'qwen2' 
                     
-                    # Instantiate the actual config class (Qwen2Config) using the dict
-                    # We try to find the class mapping dynamically
-                    try:
-                        from transformers import Qwen2Config
-                        config = Qwen2Config.from_dict(config_dict)
-                    except ImportError:
-                        # Fallback: try looking up in CONFIG_MAPPING if direct import fails
-                        if 'qwen2' in AutoConfig.CONFIG_MAPPING:
-                            config_cls = AutoConfig.CONFIG_MAPPING['qwen2']
-                            config = config_cls.from_dict(config_dict)
-                        else:
-                            raise ValueError("Could not find Qwen2Config in transformers library. Update transformers?")
+                    # Patch the architecture type to one known by Transformers (Qwen2 is structurally identical)
+                    config_dict['model_type'] = 'qwen2'                     
+                    config = AutoConfig.for_model("qwen2", **config_dict)
 
                 # 2. Tokenizer
-                # Fixes "data did not match any variant of untagged enum ModelWrapper" by using use_fast=False
                 tokenizer = AutoTokenizer.from_pretrained(
                     model_name, 
                     trust_remote_code=True, 
@@ -650,7 +637,7 @@ class TextClassificationExperiments:
                 
                 model = AutoModel.from_pretrained(
                     model_name, 
-                    config=config, # Inject patched config
+                    config=config, # Inject the patched configuration
                     trust_remote_code=True, 
                     torch_dtype=torch_dtype
                 ).to(device)
@@ -676,7 +663,7 @@ class TextClassificationExperiments:
                             token_embeddings = outputs.last_hidden_state
                             attention_mask = inputs.attention_mask
 
-                            # Mean Pooling
+                            # Mean Pooling (Standard for Qwen/E5/GTE models)
                             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
                             sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
                             sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
