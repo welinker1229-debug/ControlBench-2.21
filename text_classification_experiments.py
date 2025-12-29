@@ -587,10 +587,14 @@ class TextClassificationExperiments:
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
-        # Check for Transformers (required for manual loading if SBERT fails on arch)
-        if not TRANSFORMERS_AVAILABLE:
+        # Local import to ensure dependencies without changing global file
+        try:
+            import json
+            from transformers import AutoTokenizer, AutoModel, AutoConfig
+            from transformers.utils import cached_file
+        except ImportError:
             self.log_result("\n❌ Transformers library not available (pip install transformers)")
-            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Transformers missing"}
+            self.results["QWEN"] = {"accuracy": 0.0, "error": "Transformers missing"}
             return
 
         try:
@@ -599,37 +603,53 @@ class TextClassificationExperiments:
 
             self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
             
-            # --- Manual Model Loading ---
+            # --- Robust Manual Loading (Architecture Patching) ---
             try:
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 if device == "cpu":
                     self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
 
+                # 1. Config Patching Strategy
+                # Fixes: "Transformers does not recognize architecture 'qwen3'"
+                # We fetch the raw config, change type to 'qwen2' (compatible), and load.
+                try:
+                    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+                except (ValueError, KeyError, EnvironmentError):
+                    self.log_hyperparams("   ⚠️ AutoConfig failed on 'qwen3'. Patching config to 'qwen2'...")
+                    config_path = cached_file(model_name, "config.json")
+                    with open(config_path, 'r') as f:
+                        config_dict = json.load(f)
+                    config_dict['model_type'] = 'qwen2' 
+                    config = AutoConfig.from_dict(config_dict)
+
+                # 2. Tokenizer
+                # Fixes: "data did not match any variant of untagged enum ModelWrapper"
+                # We enforce use_fast=False to use the Python tokenizer.
                 tokenizer = AutoTokenizer.from_pretrained(
                     model_name, 
                     trust_remote_code=True, 
-                    padding_side="right",
-                    use_fast=False 
+                    use_fast=False, 
+                    padding_side="right"
                 )
                 
-                # Load model with fp16/bf16 if on GPU to save memory
-                model_dtype = "auto" if device == "cuda" else torch.float32
+                # 3. Load Model
+                # Use float16 on GPU to save memory (Qwen 8B needs ~16GB VRAM)
+                torch_dtype = torch.float16 if device == "cuda" else torch.float32
                 
                 model = AutoModel.from_pretrained(
                     model_name, 
+                    config=config, # Inject patched config
                     trust_remote_code=True, 
-                    torch_dtype=model_dtype
+                    torch_dtype=torch_dtype
                 ).to(device)
                 model.eval()
 
                 # --- Helper: Batch Encoding Function ---
-                def encode_texts(texts, batch_size=8):
+                def encode_texts(texts, batch_size=4): 
                     all_embs = []
-                    # Process in batches to avoid OOM
                     for i in range(0, len(texts), batch_size):
                         batch = texts[i : i + batch_size]
                         
-                        # Tokenize
                         inputs = tokenizer(
                             batch, 
                             padding=True, 
@@ -644,7 +664,7 @@ class TextClassificationExperiments:
                             token_embeddings = outputs.last_hidden_state
                             attention_mask = inputs.attention_mask
 
-                            # Mean Pooling
+                            # Mean Pooling (Standard for Qwen/E5/GTE models)
                             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
                             sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
                             sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
@@ -652,15 +672,14 @@ class TextClassificationExperiments:
                             
                             # Normalize
                             embs = torch.nn.functional.normalize(embs, p=2, dim=1)
-                            
                             all_embs.append(embs.cpu().numpy())
                             
                     return np.concatenate(all_embs, axis=0)
 
                 # --- Encoding ---
-                self.log("   Encoding Train (Custom Batcher - Python Tokenizer)...")
+                self.log("   Encoding Train (Custom Batcher)...")
                 X_train_emb = encode_texts(X_train)
-                self.log("   Encoding Val (Custom Batcher - Python Tokenizer)...")
+                self.log("   Encoding Val (Custom Batcher)...")
                 X_val_emb = encode_texts(X_val)
 
             except Exception as e:
@@ -668,7 +687,7 @@ class TextClassificationExperiments:
                 self.results["QWEN"] = {"accuracy": 0.0, "error": str(e)}
                 return
 
-            # --- Classification (Standard) ---
+            # --- Classification (Standard Logic) ---
             classifier_configs = [
                 {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
                 {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
