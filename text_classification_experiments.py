@@ -578,6 +578,12 @@ class TextClassificationExperiments:
 
     # ---------------- QWEN ----------------
     def tune_qwen_experiment(self, X_train, X_val, X_test, y_train, y_val, y_test):
+        import os
+
+        for key in ['REQUESTS_CA_BUNDLE', 'SSL_CERT_FILE', 'CURL_CA_BUNDLE']:
+            if key in os.environ:
+                del os.environ[key]
+                
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
