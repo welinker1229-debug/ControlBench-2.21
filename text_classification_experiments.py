@@ -587,55 +587,115 @@ class TextClassificationExperiments:
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
-        if not SENTENCE_TRANSFORMERS_AVAILABLE:
-            self.log_result("\n❌ Sentence-Transformers not available (pip install sentence-transformers)")
-            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "SBERT not available"}
+        # Check for Transformers (required for manual loading if SBERT fails on arch)
+        if not TRANSFORMERS_AVAILABLE:
+            self.log_result("\n❌ Transformers library not available (pip install transformers)")
+            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Transformers missing"}
             return
 
         try:
             best_score, best_params, best_embeddings = 0, None, None
             model_name = "Qwen/Qwen3-Embedding-8B"
 
+            self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
+            
             try:
-                self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
-                qwen_model = SentenceTransformer(
-                    model_name,
-                    model_kwargs={
-                        "trust_remote_code": True, 
-                        "torch_dtype": "auto" 
-                    },
-                    tokenizer_kwargs={"padding_side": "left"},
-                    device="cuda" # Explicitly request CUDA
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                if device == "cpu":
+                    self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
+
+                tokenizer = AutoTokenizer.from_pretrained(
+                    model_name, 
+                    trust_remote_code=True, 
+                    padding_side="right" # Standard for feature extraction
                 )
+                
+                # Load model with fp16/bf16 if on GPU to save memory (approx 15-16GB VRAM required)
+                model_dtype = "auto" if device == "cuda" else torch.float32
+                
+                model = AutoModel.from_pretrained(
+                    model_name, 
+                    trust_remote_code=True, 
+                    torch_dtype=model_dtype
+                ).to(device)
+                model.eval()
 
-                X_train_emb = qwen_model.encode(X_train, show_progress_bar=False)
-                X_val_emb = qwen_model.encode(X_val, show_progress_bar=False)
+                # --- Helper: Batch Encoding Function ---
+                def encode_texts(texts, batch_size=8):
+                    all_embs = []
+                    # Process in batches to avoid OOM
+                    for i in range(0, len(texts), batch_size):
+                        batch = texts[i : i + batch_size]
+                        
+                        # Tokenize
+                        inputs = tokenizer(
+                            batch, 
+                            padding=True, 
+                            truncation=True, 
+                            max_length=512, 
+                            return_tensors="pt"
+                        ).to(device)
 
-                classifier_configs = [
-                    {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
-                    {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
-                    {'C': 10.0, 'solver': 'liblinear', 'max_iter': 1000, 'class_weight': 'balanced'},
-                    {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 2000, 'class_weight': None},
-                ]
+                        with torch.no_grad():
+                            outputs = model(**inputs)
+                            # Extract Last Hidden State
+                            # shape: [batch_size, seq_len, hidden_dim]
+                            token_embeddings = outputs.last_hidden_state
+                            attention_mask = inputs.attention_mask
 
-                for config in classifier_configs:
-                    clf = LogisticRegression(random_state=42, **config)
-                    clf.fit(X_train_emb, y_train)
-                    y_pred_val = clf.predict(X_val_emb)
+                            # Mean Pooling (Safe/Effective for Classification)
+                            input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+                            sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
+                            sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+                            embs = sum_embeddings / sum_mask
+                            
+                            # Normalize embeddings
+                            embs = torch.nn.functional.normalize(embs, p=2, dim=1)
+                            
+                            all_embs.append(embs.cpu().numpy())
+                            
+                    return np.concatenate(all_embs, axis=0)
 
-                    val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
-                    val_acc = accuracy_score(y_val, y_pred_val)
+                # --- Encoding ---
+                self.log("   Encoding Train (Custom Batcher)...")
+                X_train_emb = encode_texts(X_train)
+                self.log("   Encoding Val (Custom Batcher)...")
+                X_val_emb = encode_texts(X_val)
 
-                    self.log_hyperparams(f"   Config {config}: F1={val_f1_macro:.4f}, Acc={val_acc:.4f}")
-
-                    if val_f1_macro > best_score:
-                        best_score = val_f1_macro
-                        best_params = {'classifier_config': config}
-                        X_test_emb = qwen_model.encode(X_test, show_progress_bar=False)
-                        best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
             except Exception as e:
-                self.log_hyperparams(f"   Error with {model_name}: {e}")
+                self.log_hyperparams(f"   ❌ Fatal error loading/encoding Qwen 3: {e}")
+                self.results["QWEN"] = {"accuracy": 0.0, "error": str(e)}
+                return
 
+            # --- Classification (Same as before) ---
+            classifier_configs = [
+                {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
+                {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
+                {'C': 10.0, 'solver': 'liblinear', 'max_iter': 1000, 'class_weight': 'balanced'},
+                {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 2000, 'class_weight': None},
+            ]
+
+            for config in classifier_configs:
+                clf = LogisticRegression(random_state=42, **config)
+                clf.fit(X_train_emb, y_train)
+                y_pred_val = clf.predict(X_val_emb)
+
+                val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
+                val_acc = accuracy_score(y_val, y_pred_val)
+
+                self.log_hyperparams(f"   Config {config}: F1={val_f1_macro:.4f}, Acc={val_acc:.4f}")
+
+                if val_f1_macro > best_score:
+                    best_score = val_f1_macro
+                    best_params = {'classifier_config': config}
+                    # Encode Test only if we found a candidate
+                    if best_embeddings is None: # Lazy load test
+                         self.log("   Encoding Test (Custom Batcher)...")
+                         X_test_emb = encode_texts(X_test)
+                         best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
+                    else:
+                         # Test embeddings explicitly loaded once to save compute
+                         pass 
 
             if best_params is None:
                 self.log_result("\n❌ QWEN hyperparameter tuning failed")
@@ -649,6 +709,11 @@ class TextClassificationExperiments:
 
             self.log_result("\n6. QWEN Classification (Hyperparameter Tuned)")
             self.log_result("-" * 57)
+
+            # Ensure Test Embeddings exist
+            if best_embeddings is None or 'test' not in best_embeddings:
+                 X_test_emb = encode_texts(X_test)
+                 best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
 
             final_classifier = LogisticRegression(random_state=42, **best_params['classifier_config'])
             final_classifier.fit(best_embeddings['train'], y_train)
@@ -674,7 +739,7 @@ class TextClassificationExperiments:
         except Exception as e:
             self.log_result(f"❌ Error in QWEN experiment: {str(e)}")
             self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
- 
+
     # ---------------- Transformers (BERT/RoBERTa) ----------------
 
     def run_transformer_experiments(self, X_train, X_val, X_test, y_train, y_val, y_test, labels):
