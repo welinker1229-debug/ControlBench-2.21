@@ -21,13 +21,13 @@ bash:
 	docker run --gpus all -it --rm \
 		-v "$(CURDIR)":/app \
 		-w /app \
-		$(IMAGE_NAME):$(CUDA_TAG) bash
+		$(IMAGE_NAME):gpu bash
 
 bash-no-cuda:
 	docker run -it --rm \
 		-v "$(CURDIR)":/app \
 		-w /app \
-		$(IMAGE_NAME):$(CPU_TAG) bash
+		$(IMAGE_NAME):cpu bash
 
 clean:
 	-docker image rm -f $(IMAGE_NAME):gpu $(IMAGE_NAME):cpu

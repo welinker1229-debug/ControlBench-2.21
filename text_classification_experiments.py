@@ -1,4 +1,3 @@
-
 """
 Text Classification Experiments with Train/Val/Test Split (60:20:20)
 - Hyperparameter tuning on validation split ONLY.
@@ -12,6 +11,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 import warnings
+
 warnings.filterwarnings('ignore')
 
 # Core ML libraries
@@ -29,6 +29,7 @@ SENTENCE_TRANSFORMERS_AVAILABLE = False
 try:
     import torch
     from torch.utils.data import Dataset
+
     TORCH_AVAILABLE = True
     print("✅ PyTorch available")
 except Exception as e:
@@ -42,6 +43,7 @@ try:
         RobertaTokenizer, RobertaForSequenceClassification,
         TrainingArguments, Trainer
     )
+
     TRANSFORMERS_AVAILABLE = True
     print("✅ Transformers available")
 except Exception as e:
@@ -49,6 +51,7 @@ except Exception as e:
 
 try:
     from simcse import SimCSE
+
     SIMCSE_AVAILABLE = True
     print("✅ SimCSE available")
 except Exception as e:
@@ -56,6 +59,7 @@ except Exception as e:
 
 try:
     from sentence_transformers import SentenceTransformer
+
     SENTENCE_TRANSFORMERS_AVAILABLE = True
     print("✅ Sentence-Transformers (SBERT) available")
 except Exception as e:
@@ -184,7 +188,8 @@ class SplitDatasetProcessor:
     def create_text_features(self, users: Dict) -> Tuple[List[str], List[str], List[Dict]]:
         texts, labels, metadata = [], [], []
         for uid, ud in users.items():
-            all_texts = ud["posts"] + ud["comments_on_posts"] + ud["comments_in_conversations"] + ud["replies_in_conversations"]
+            all_texts = ud["posts"] + ud["comments_on_posts"] + ud["comments_in_conversations"] + ud[
+                "replies_in_conversations"]
             if all_texts:
                 combined = " [SEP] ".join(all_texts)
                 texts.append(combined)
@@ -253,12 +258,12 @@ class TextClassificationExperiments:
             f.write(f"Using Train/Validation/Test Split (60:20:20)\n")
             f.write(f"PyTorch: {TORCH_AVAILABLE}, Transformers: {TRANSFORMERS_AVAILABLE}\n")
             f.write(f"SimCSE: {SIMCSE_AVAILABLE}, SBERT: {SENTENCE_TRANSFORMERS_AVAILABLE}\n")
-            f.write("="*80 + "\n\n")
+            f.write("=" * 80 + "\n\n")
 
         with open(self.hyperparams_file, "w") as f:
             f.write(f"Hyperparameter Search Results - {dataset_name}\n")
             f.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("="*80 + "\n\n")
+            f.write("=" * 80 + "\n\n")
 
     def log_result(self, message: str):
         print(message)
@@ -273,9 +278,9 @@ class TextClassificationExperiments:
     # ---------------- Baselines ----------------
 
     def run_baseline_experiments(self, X_train, X_val, X_test, y_train, y_val, y_test):
-        self.log_result("\n" + "="*60)
+        self.log_result("\n" + "=" * 60)
         self.log_result("BASELINE EXPERIMENTS")
-        self.log_result("="*60)
+        self.log_result("=" * 60)
 
         # Random
         self.log_result("\n1. Random Classifier")
@@ -338,7 +343,8 @@ class TextClassificationExperiments:
                 val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
                 val_acc = accuracy_score(y_val, y_pred_val)
 
-                self.log_hyperparams(f"Config {i+1}: features={max_features}, ngrams={ngram_range}, C={C}, solver={solver}")
+                self.log_hyperparams(
+                    f"Config {i + 1}: features={max_features}, ngrams={ngram_range}, C={C}, solver={solver}")
                 self.log_hyperparams(f"   Validation F1: {val_f1_macro:.4f}, Accuracy: {val_acc:.4f}")
 
                 if val_f1_macro > best_score:
@@ -350,7 +356,8 @@ class TextClassificationExperiments:
 
         if best_params is None:
             self.log_result("\n❌ TF-IDF+LogReg hyperparameter tuning failed")
-            self.results["TF-IDF+LogReg"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Tuning failed"}
+            self.results["TF-IDF+LogReg"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0,
+                                             "error": "Tuning failed"}
             return
 
         self.log_hyperparams("\n🏆 Best TF-IDF+LogReg parameters:")
@@ -358,11 +365,13 @@ class TextClassificationExperiments:
             self.log_hyperparams(f"   {k}: {v}")
         self.log_hyperparams(f"   Validation F1: {best_score:.4f}")
 
-        vectorizer = TfidfVectorizer(max_features=best_params['max_features'], stop_words='english', ngram_range=best_params['ngram_range'])
+        vectorizer = TfidfVectorizer(max_features=best_params['max_features'], stop_words='english',
+                                     ngram_range=best_params['ngram_range'])
         X_train_tfidf = vectorizer.fit_transform(X_train)
         X_test_tfidf = vectorizer.transform(X_test)
 
-        final_clf = LogisticRegression(random_state=42, max_iter=2000, class_weight='balanced', C=best_params['C'], solver=best_params['solver'])
+        final_clf = LogisticRegression(random_state=42, max_iter=2000, class_weight='balanced', C=best_params['C'],
+                                       solver=best_params['solver'])
         final_clf.fit(X_train_tfidf, y_train)
         y_pred_test = final_clf.predict(X_test_tfidf)
 
@@ -390,7 +399,8 @@ class TextClassificationExperiments:
 
         if not SIMCSE_AVAILABLE:
             self.log_result("\n❌ SimCSE not available (pip install simcse)")
-            self.results["SimCSE"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "SimCSE not available"}
+            self.results["SimCSE"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0,
+                                      "error": "SimCSE not available"}
             return
 
         try:
@@ -420,14 +430,16 @@ class TextClassificationExperiments:
 
             for i, (C, solver, max_iter, class_weight) in enumerate(param_combinations):
                 try:
-                    clf = LogisticRegression(random_state=42, C=C, solver=solver, max_iter=max_iter, class_weight=class_weight)
+                    clf = LogisticRegression(random_state=42, C=C, solver=solver, max_iter=max_iter,
+                                             class_weight=class_weight)
                     clf.fit(X_train_embeddings, y_train)
                     y_pred_val = clf.predict(X_val_embeddings)
 
                     val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
                     val_acc = accuracy_score(y_val, y_pred_val)
 
-                    self.log_hyperparams(f"Config {i+1}: C={C}, solver={solver}, max_iter={max_iter}, class_weight={class_weight}")
+                    self.log_hyperparams(
+                        f"Config {i + 1}: C={C}, solver={solver}, max_iter={max_iter}, class_weight={class_weight}")
                     self.log_hyperparams(f"   Validation F1: {val_f1_macro:.4f}, Accuracy: {val_acc:.4f}")
 
                     if val_f1_macro > best_score:
@@ -564,6 +576,99 @@ class TextClassificationExperiments:
             self.log_result(f"❌ Error in SBERT experiment: {str(e)}")
             self.results["SBERT"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
 
+    # ---------------- QWEN ----------------
+    def tune_qwen_experiment(self, X_train, X_val, X_test, y_train, y_val, y_test):
+        self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
+        self.log_hyperparams("-" * 37)
+
+        if not SENTENCE_TRANSFORMERS_AVAILABLE:
+            self.log_result("\n❌ Sentence-Transformers not available (pip install sentence-transformers)")
+            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "SBERT not available"}
+            return
+
+        try:
+            best_score, best_params, best_embeddings = 0, None, None
+            model_name = "Qwen/Qwen3-Embedding-8B"
+
+            try:
+                self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
+                qwen_model = SentenceTransformer(
+                    model_name,
+                    model_kwargs={
+                        "trust_remote_code": True, 
+                        "torch_dtype": "auto" 
+                    },
+                    tokenizer_kwargs={"padding_side": "left"},
+                    device="cuda" # Explicitly request CUDA
+                )
+
+                X_train_emb = qwen_model.encode(X_train, show_progress_bar=False)
+                X_val_emb = qwen_model.encode(X_val, show_progress_bar=False)
+
+                classifier_configs = [
+                    {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
+                    {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
+                    {'C': 10.0, 'solver': 'liblinear', 'max_iter': 1000, 'class_weight': 'balanced'},
+                    {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 2000, 'class_weight': None},
+                ]
+
+                for config in classifier_configs:
+                    clf = LogisticRegression(random_state=42, **config)
+                    clf.fit(X_train_emb, y_train)
+                    y_pred_val = clf.predict(X_val_emb)
+
+                    val_f1_macro = f1_score(y_val, y_pred_val, average='macro', zero_division=0)
+                    val_acc = accuracy_score(y_val, y_pred_val)
+
+                    self.log_hyperparams(f"   Config {config}: F1={val_f1_macro:.4f}, Acc={val_acc:.4f}")
+
+                    if val_f1_macro > best_score:
+                        best_score = val_f1_macro
+                        best_params = {'classifier_config': config}
+                        X_test_emb = qwen_model.encode(X_test, show_progress_bar=False)
+                        best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
+            except Exception as e:
+                self.log_hyperparams(f"   Error with {model_name}: {e}")
+
+
+            if best_params is None:
+                self.log_result("\n❌ QWEN hyperparameter tuning failed")
+                self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": "Tuning failed"}
+                return
+
+            self.log_hyperparams(f"\n🏆 Best QWEN parameters:")
+            for k, v in best_params['classifier_config'].items():
+                self.log_hyperparams(f"   {k}: {v}")
+            self.log_hyperparams(f"   Validation F1: {best_score:.4f}")
+
+            self.log_result("\n6. QWEN Classification (Hyperparameter Tuned)")
+            self.log_result("-" * 57)
+
+            final_classifier = LogisticRegression(random_state=42, **best_params['classifier_config'])
+            final_classifier.fit(best_embeddings['train'], y_train)
+            y_pred = final_classifier.predict(best_embeddings['test'])
+
+            acc = accuracy_score(y_test, y_pred)
+            f1_macro = f1_score(y_test, y_pred, average='macro', zero_division=0)
+            f1_micro = f1_score(y_test, y_pred, average='micro', zero_division=0)
+
+            self.log_result(f"Best classifier config: {best_params['classifier_config']}")
+            self.log_result(f"Test Accuracy: {acc:.4f}")
+            self.log_result(f"Test Macro F1: {f1_macro:.4f}")
+            self.log_result(f"Test Micro F1: {f1_micro:.4f}")
+
+            self.results["QWEN"] = {
+                "accuracy": acc, "macro_f1": f1_macro, "micro_f1": f1_micro,
+                "best_params": best_params, "validation_f1": best_score
+            }
+
+            report = classification_report(y_test, y_pred, zero_division=0)
+            self.log_result(f"\nDetailed Classification Report:\n{report}")
+
+        except Exception as e:
+            self.log_result(f"❌ Error in QWEN experiment: {str(e)}")
+            self.results["QWEN"] = {"accuracy": 0.0, "macro_f1": 0.0, "micro_f1": 0.0, "error": str(e)}
+ 
     # ---------------- Transformers (BERT/RoBERTa) ----------------
 
     def run_transformer_experiments(self, X_train, X_val, X_test, y_train, y_val, y_test, labels):
@@ -600,7 +705,8 @@ class TextClassificationExperiments:
 
             for i, (lr, batch_size, epochs, weight_decay, max_length) in enumerate(param_combinations):
                 try:
-                    self.log_hyperparams(f"\nTesting BERT config {i+1}/{len(param_combinations)}: lr={lr}, batch={batch_size}, epochs={epochs}")
+                    self.log_hyperparams(
+                        f"\nTesting BERT config {i + 1}/{len(param_combinations)}: lr={lr}, batch={batch_size}, epochs={epochs}")
 
                     train_dataset = CustomDataset(X_train, y_train, tokenizer, max_length)
                     val_dataset = CustomDataset(X_val, y_val, tokenizer, max_length)
@@ -683,7 +789,7 @@ class TextClassificationExperiments:
             self.log_hyperparams(f"   Validation F1: {best_score:.4f}")
 
             # ========== Final training (train+val → test once) ==========
-            self.log_result("\n6. BERT Classification (Hyperparameter Tuned)")
+            self.log_result("\n7. BERT Classification (Hyperparameter Tuned)")
             self.log_result("-" * 45)
             self.log_result("Training final BERT model with best hyperparameters...")
 
@@ -716,7 +822,7 @@ class TextClassificationExperiments:
                 weight_decay=best_params['weight_decay'],
                 learning_rate=best_params['learning_rate'],
                 logging_steps=50,
-                eval_strategy="no",   # no validation here
+                eval_strategy="no",  # no validation here
                 save_strategy="no",
                 report_to=None,
                 seed=42,
@@ -784,7 +890,8 @@ class TextClassificationExperiments:
 
             for i, (lr, batch_size, epochs, weight_decay, max_length) in enumerate(param_combinations):
                 try:
-                    self.log_hyperparams(f"\nTesting RoBERTa config {i+1}/{len(param_combinations)}: lr={lr}, batch={batch_size}, epochs={epochs}")
+                    self.log_hyperparams(
+                        f"\nTesting RoBERTa config {i + 1}/{len(param_combinations)}: lr={lr}, batch={batch_size}, epochs={epochs}")
 
                     train_dataset = CustomDataset(X_train, y_train, tokenizer, max_length)
                     val_dataset = CustomDataset(X_val, y_val, tokenizer, max_length)
@@ -948,9 +1055,9 @@ class TextClassificationExperiments:
     # ---------------- Summary ----------------
 
     def create_results_summary(self):
-        self.log_result("\n" + "="*80)
+        self.log_result("\n" + "=" * 80)
         self.log_result("EXPERIMENT SUMMARY")
-        self.log_result("="*80)
+        self.log_result("=" * 80)
 
         valid_results = {}
         for model, metrics in self.results.items():
@@ -988,20 +1095,20 @@ class TextClassificationExperiments:
 
 def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
     print("🚀  TEXT CLASSIFICATION EXPERIMENTS")
-    print("="*80)
+    print("=" * 80)
     print("Using Train/Validation/Test Split (60:20:20)")
     print("With hyperparameter tuning for training-based methods")
     print(f"Available: PyTorch={TORCH_AVAILABLE}, Transformers={TRANSFORMERS_AVAILABLE}")
     print(f"SimCSE={SIMCSE_AVAILABLE}, SBERT={SENTENCE_TRANSFORMERS_AVAILABLE}")
-    print("="*80)
+    print("=" * 80)
 
     all_results = {}
     experiment_folders = []
 
     for dataset_name in datasets:
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"🚀 RUNNING EXPERIMENTS ON: {dataset_name.upper()}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         try:
             processor = SplitDatasetProcessor(dataset_name, split_dir)
@@ -1012,7 +1119,8 @@ def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
             X_test, y_test, _ = processor.create_text_features(test_users)
 
             if len(X_train) < 10 or len(X_val) < 5 or len(X_test) < 5:
-                print(f"❌ Insufficient data for {dataset_name}: {len(X_train)} train, {len(X_val)} val, {len(X_test)} test")
+                print(
+                    f"❌ Insufficient data for {dataset_name}: {len(X_train)} train, {len(X_val)} val, {len(X_test)} test")
                 continue
 
             print(f"📊 Dataset splits: {len(X_train)} train, {len(X_val)} val, {len(X_test)} test")
@@ -1021,11 +1129,12 @@ def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
             experiments = TextClassificationExperiments(dataset_name)
             experiment_folders.append(experiments.experiment_dir)
 
-            experiments.run_baseline_experiments(X_train, X_val, X_test, y_train, y_val, y_test)
-            experiments.tune_tfidf_logistic_regression(X_train, X_val, X_test, y_train, y_val, y_test)
-            experiments.tune_simcse_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
-            experiments.tune_sentence_bert_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
-            experiments.run_transformer_experiments(X_train, X_val, X_test, y_train, y_val, y_test, labels)
+            # experiments.run_baseline_experiments(X_train, X_val, X_test, y_train, y_val, y_test)
+            # experiments.tune_tfidf_logistic_regression(X_train, X_val, X_test, y_train, y_val, y_test)
+            # experiments.tune_simcse_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
+            # experiments.tune_sentence_bert_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
+            experiments.tune_qwen_experiment(X_train, X_val, X_test, y_train, y_val, y_test)
+            # experiments.run_transformer_experiments(X_train, X_val, X_test, y_train, y_val, y_test, labels)
 
             experiments.create_results_summary()
             all_results[dataset_name] = experiments.results
@@ -1046,19 +1155,20 @@ def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
 
     with open(summary_file, "w") as f:
         f.write(" TEXT CLASSIFICATION EXPERIMENTS SUMMARY\n")
-        f.write("="*80 + "\n")
+        f.write("=" * 80 + "\n")
         f.write(f"Completed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write("Using Train/Validation/Test Split (60:20:20)\n")
         f.write("With hyperparameter tuning for training-based methods\n")
         f.write(f"Dependencies: PyTorch={TORCH_AVAILABLE}, Transformers={TRANSFORMERS_AVAILABLE}\n")
         f.write(f"SimCSE={SIMCSE_AVAILABLE}, SBERT={SENTENCE_TRANSFORMERS_AVAILABLE}\n")
-        f.write("="*80 + "\n\n")
+        f.write("=" * 80 + "\n\n")
         for dataset, results in all_results.items():
             f.write(f"\n{dataset.upper()}:\n")
             f.write("-" * 40 + "\n")
             for model, metrics in results.items():
                 if isinstance(metrics.get("macro_f1"), (int, float)) and metrics["macro_f1"] > 0:
-                    f.write(f"{model:<15} Test Macro F1: {metrics['macro_f1']:.4f} | Test Accuracy: {metrics['accuracy']:.4f}")
+                    f.write(
+                        f"{model:<15} Test Macro F1: {metrics['macro_f1']:.4f} | Test Accuracy: {metrics['accuracy']:.4f}")
                     if 'validation_f1' in metrics:
                         f.write(f" | Val F1: {metrics['validation_f1']:.4f}")
                     f.write("\n")
@@ -1069,7 +1179,7 @@ def run_all_experiments(datasets: List[str], split_dir: str = "split_datasets"):
 
     with open(hyperparams_summary_file, "w") as f:
         f.write("HYPERPARAMETER SEARCH SUMMARY\n")
-        f.write("="*50 + "\n\n")
+        f.write("=" * 50 + "\n\n")
         for dataset, results in all_results.items():
             f.write(f"\n{dataset.upper()} - Best Hyperparameters:\n")
             f.write("-" * 40 + "\n")
@@ -1161,6 +1271,7 @@ def main():
     print("  • SimCSE: Tuning classifier head (C, solver, max_iter, class_weight)")
     print("  • Sentence-BERT: Model selection + classifier head tuning")
     print("  • BERT: Full fine-tuning (lr, batch_size, epochs, weight_decay, max_length)")
+    print("  • QWen: Full fine-tuning (lr, batch_size, epochs, weight_decay, max_length)")
     print("  • RoBERTa: Full fine-tuning (lr, batch_size, epochs, weight_decay, max_length)")
 
     try:
