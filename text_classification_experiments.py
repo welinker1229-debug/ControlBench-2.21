@@ -587,8 +587,8 @@ class TextClassificationExperiments:
         self.log_hyperparams("\n🔧 QWEN Hyperparameter Tuning")
         self.log_hyperparams("-" * 37)
 
-        # Local imports to ensure availability
         try:
+            import transformers
             import json
             from transformers import AutoTokenizer, AutoModel, AutoConfig
             from transformers.utils import cached_file
@@ -603,28 +603,24 @@ class TextClassificationExperiments:
 
             self.log_hyperparams(f"\nTesting QWEN model: {model_name}")
             
-            # --- Robust Manual Loading (Architecture Patching) ---
             try:
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 if device == "cpu":
                     self.log_result("⚠️ WARNING: Running 8B model on CPU. This will be extremely slow.")
 
-                # 1. Config Patching Strategy
                 try:
                     config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
                 except (ValueError, KeyError, EnvironmentError):
                     self.log_hyperparams("   ⚠️ AutoConfig failed on 'qwen3'. Patching config to 'qwen2'...")
-                    
-                    # Fetch raw config file
                     config_path = cached_file(model_name, "config.json")
                     with open(config_path, 'r') as f:
                         config_dict = json.load(f)
                     
-                    # Patch the architecture type to one known by Transformers (Qwen2 is structurally identical)
-                    config_dict['model_type'] = 'qwen2'                     
+                    if 'model_type' in config_dict:
+                        config_dict.pop('model_type') 
+                    
                     config = AutoConfig.for_model("qwen2", **config_dict)
 
-                # 2. Tokenizer
                 tokenizer = AutoTokenizer.from_pretrained(
                     model_name, 
                     trust_remote_code=True, 
@@ -632,18 +628,16 @@ class TextClassificationExperiments:
                     padding_side="right"
                 )
                 
-                # 3. Load Model
                 torch_dtype = torch.float16 if device == "cuda" else torch.float32
                 
                 model = AutoModel.from_pretrained(
                     model_name, 
-                    config=config, # Inject the patched configuration
+                    config=config,
                     trust_remote_code=True, 
                     torch_dtype=torch_dtype
                 ).to(device)
                 model.eval()
 
-                # --- Helper: Batch Encoding Function ---
                 def encode_texts(texts, batch_size=4): 
                     all_embs = []
                     for i in range(0, len(texts), batch_size):
@@ -659,23 +653,19 @@ class TextClassificationExperiments:
 
                         with torch.no_grad():
                             outputs = model(**inputs)
-                            # Extract Last Hidden State
                             token_embeddings = outputs.last_hidden_state
                             attention_mask = inputs.attention_mask
 
-                            # Mean Pooling (Standard for Qwen/E5/GTE models)
                             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
                             sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
                             sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
                             embs = sum_embeddings / sum_mask
                             
-                            # Normalize
                             embs = torch.nn.functional.normalize(embs, p=2, dim=1)
                             all_embs.append(embs.cpu().numpy())
                             
                     return np.concatenate(all_embs, axis=0)
 
-                # --- Encoding ---
                 self.log("   Encoding Train (Custom Batcher)...")
                 X_train_emb = encode_texts(X_train)
                 self.log("   Encoding Val (Custom Batcher)...")
@@ -686,7 +676,6 @@ class TextClassificationExperiments:
                 self.results["QWEN"] = {"accuracy": 0.0, "error": str(e)}
                 return
 
-            # --- Classification (Standard Logic) ---
             classifier_configs = [
                 {'C': 1.0, 'solver': 'lbfgs', 'max_iter': 1000, 'class_weight': 'balanced'},
                 {'C': 0.1, 'solver': 'saga', 'max_iter': 1000, 'class_weight': 'balanced'},
@@ -707,7 +696,7 @@ class TextClassificationExperiments:
                 if val_f1_macro > best_score:
                     best_score = val_f1_macro
                     best_params = {'classifier_config': config}
-                    if best_embeddings is None: # Lazy load test
+                    if best_embeddings is None:
                          self.log("   Encoding Test (Custom Batcher)...")
                          X_test_emb = encode_texts(X_test)
                          best_embeddings = {'train': X_train_emb, 'test': X_test_emb}
