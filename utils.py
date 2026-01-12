@@ -213,21 +213,21 @@ def initialize_model(model_type, config, num_classes):
             num_classes=config.get('num_classes', None),
             use_label_emb=config.get('use_label_emb', False)
         )
-    elif model_type == "LLM4HeG":
-        model = LLM4HeGNodeClassifier(
-            in_feats=in_feats,
-            edge_feats=edge_feats,
-            hidden_size=config['hidden_size'],
-            out_classes=num_classes,
-            dropout=config['dropout'],
-            n_layers=config['n_layers'],
-            eps=config.get('eps', 0.3),
-            post_feats=post_feats,
-            num_classes=config.get('num_classes', None),
-            use_label_emb=config.get('use_label_emb', False),
-            alpha_yn=config.get('alpha_yn', 0.3),
-            lambda_reg=config.get('lambda_reg', 0.1)
-        )
+    # elif model_type == "LLM4HeG":
+    #     model = LLM4HeGNodeClassifier(
+    #         in_feats=in_feats,
+    #         edge_feats=edge_feats,
+    #         hidden_size=config['hidden_size'],
+    #         out_classes=num_classes,
+    #         dropout=config['dropout'],
+    #         n_layers=config['n_layers'],
+    #         eps=config.get('eps', 0.3),
+    #         post_feats=post_feats,
+    #         num_classes=config.get('num_classes', None),
+    #         use_label_emb=config.get('use_label_emb', False),
+    #         alpha_yn=config.get('alpha_yn', 0.3),
+    #         lambda_reg=config.get('lambda_reg', 0.1)
+    #     )
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
