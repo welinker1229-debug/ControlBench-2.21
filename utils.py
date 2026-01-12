@@ -10,7 +10,7 @@ from models import (
     HGTNodeClassifier,
     HinSAGENodeClassifier,
     H2GFormerNodeClassifier,
-    LLM4HeGNodeClassifier,
+    # LLM4HeGNodeClassifier,
 )
 
 def set_seeds(seed=42):
