@@ -103,7 +103,7 @@ def generate_embeddings_with_model(model_name: str, texts: list[str]) -> list[li
                 if i + BATCH_SIZE < len(texts):
                     time.sleep(0.5)
                 
-                break  # Success, exit retry loop
+                break
                 
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries - 1:
