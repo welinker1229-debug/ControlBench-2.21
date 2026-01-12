@@ -19,8 +19,8 @@ from config import get_hyperparameter_search_space
 from utils import clear_gpu_memory, get_memory_usage
 
 SEED = 42
-DEFAULT_EPOCHS = 50
-DEFAULT_PATIENCE = 10
+DEFAULT_EPOCHS = 500
+DEFAULT_PATIENCE = 100
 
 def _create_result_dict(trial_idx, trial_params, metrics=None, train_time=0.0, error=None):
     """Create a standardized result dictionary for a trial."""

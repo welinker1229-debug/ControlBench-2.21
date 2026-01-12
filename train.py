@@ -14,21 +14,14 @@ from tqdm import tqdm
 from datetime import datetime
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
-# Import project modules
-from models import (
-    RGCNNodeClassifier, 
-    HANNodeClassifier, 
-    HGTNodeClassifier,
-    HinSAGENodeClassifier
-)
 from config import get_config, print_config, get_hyperparameter_search_space
 from datasets_ import load_3way_split_graph_data
 import utils
 
 # Constants
 SEED = 42
-DEFAULT_EPOCHS = 50
-DEFAULT_PATIENCE = 10
+DEFAULT_EPOCHS = 500
+DEFAULT_PATIENCE = 100
 DEFAULT_MAX_TRIALS = 20
 DEFAULT_DATA_DIR = "split_datasets"
 DEFAULT_OUTPUT_DIR = "experiments"
@@ -520,8 +513,8 @@ def train_model(model_type, dataset_name, custom_config=None):
         val_accs = []
         val_f1s = []
         
-        num_epochs = custom_config.get('num_epochs', config.get('num_epochs', 100))
-        patience = custom_config.get('patience', config.get('patience', 15))
+        num_epochs = custom_config.get('num_epochs', config.get('num_epochs', 500))
+        patience = custom_config.get('patience', config.get('patience', 100))
         
         print(f"Starting training for {num_epochs} epochs with validation...")
         
@@ -669,19 +662,21 @@ def evaluate(model, g, node_features, edge_features, labels, idx_to_flair=None, 
         preds_np = preds.cpu().numpy()
         
         acc = accuracy_score(labels_np, preds_np)
-        macro_f1 = f1_score(labels_np, preds_np, average='macro')
-        micro_f1 = f1_score(labels_np, preds_np, average='micro')
+        macro_f1 = f1_score(labels_np, preds_np, average='macro', zero_division=0)
+        micro_f1 = f1_score(labels_np, preds_np, average='micro', zero_division=0)
         
         if detailed and idx_to_flair:
             cm = confusion_matrix(labels_np, preds_np)
+            num_classes = len(idx_to_flair)
             report = classification_report(
-                labels_np, 
+                labels_np,
                 preds_np,
-                target_names=[idx_to_flair[i] for i in range(len(idx_to_flair))],
+                labels=list(range(num_classes)),  
+                target_names=[idx_to_flair[i] for i in range(num_classes)],
                 digits=4,
-                output_dict=True
+                output_dict=True,
+                zero_division=0,                 
             )
-            
             class_metrics = {}
             for idx, flair in idx_to_flair.items():
                 class_mask = labels == idx

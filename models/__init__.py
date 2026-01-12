@@ -4,6 +4,7 @@ from .han import HANNodeClassifier
 from .hgt import HGTNodeClassifier
 from .hinsage import HinSAGENodeClassifier
 from .h2gformer import H2GFormerNodeClassifier
+from .llm4heg import LLM4HeGNodeClassifier
 # from .edge_features import HierarchicalConversationEncoder
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     'HinSAGENodeClassifier',
     # 'HierarchicalConversationEncoder,'
     'H2GFormerNodeClassifier',
+    'LLM4HeGNodeClassifier',
 ]

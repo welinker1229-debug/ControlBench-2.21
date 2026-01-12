@@ -48,15 +48,27 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'conversation_weight': [0.2, 0.3, 0.4]
     },
     'H2GFormer': {
-        'lr': [], # [0.01, 0.005, 0.001, 5e-4, 1e-4]
-        'weight_decay': [], # [1e-5, 1e-4, 1e-3],
-        'dropout': [], # [0.1, 0.3, 0.5],
-        'hidden_size': [512], # [128, 256, 512],
-        'n_layers': [1, 2, 3, 4],
-        'num_heads': [2, 4, 8, 16],
-        'conversation_weight': [0.0],
+        'lr': [0.01, 0.005, 0.001, 5e-4, 1e-4],
+        'weight_decay': [1e-5, 1e-4, 1e-3],
+        'dropout': [0.1, 0.3, 0.5],
+        'hidden_size': [128], # [128, 256, 512]
+        'n_layers': [1], # [1, 2, 3, 4]
+        'num_heads': [2], # [2, 4, 8, 16]
+        'layers_pre_gt': [1],
+        'layers_post_gt': [1],
+        'edge_weight': [True],
         'use_label_emb': [False],
-        'num_hops': [1, 2]
+        'conversation_weight': [0.0],
+    },
+    'LLM4HeG': {
+        'lr': [0.003, 0.01, 0.03, 0.1],
+        'weight_decay': [1e-5, 1e-4, 5e-4],
+        'dropout': [0.3, 0.5, 0.7],
+        'hidden_size': [128, 256, 512],
+        'n_layers': [2, 3, 4],
+        'eps': [0.1, 0.3, 0.5],
+        'alpha_yn': [0.1, 0.3, 0.5],
+        'lambda_reg': [0.05, 0.1, 0.2]
     }
 }
 
@@ -75,14 +87,15 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
         raise ValueError(f"Unknown model for hyperparameter search: {model_name}")
     
     search_space = HYPERPARAMETER_SEARCH_SPACES[model_name].copy()
-    curr_params = {
-        "abortion": {"lr": [0.001], "weight_decay": [1e-5], "dropout": [0.5], "hidden_size": [512]},
-        "capitalism": {"lr": [0.005], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]},
-        "lgbtq": {"lr": [0.01], "weight_decay": [1e-3], "dropout": [0.3], "hidden_size": [512]},
-        "religion":  {"lr": [0.005], "weight_decay": [1e-4], "dropout": [0.5], "hidden_size": [512]},
-        "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]}
-    }
-    if model_name == "H2GFormer":
+    # curr_params = {
+    #     "abortion": {"lr": [0.001], "weight_decay": [1e-5], "dropout": [0.5], "hidden_size": [512]},
+    #     "capitalism": {"lr": [0.005], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]},
+    #     "lgbtq": {"lr": [0.01], "weight_decay": [1e-3], "dropout": [0.3], "hidden_size": [512]},
+    #     "religion":  {"lr": [0.005], "weight_decay": [1e-4], "dropout": [0.5], "hidden_size": [512]},
+    #     "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]}
+    # }
+    curr_params = {}
+    if model_name in ["H2GFormer"]:
         if dataset_name in curr_params:
             search_space.update(curr_params[dataset_name])
 
@@ -125,8 +138,8 @@ def get_config(model_name='RGCN', dataset_name='abortion'):
         # Training settings (updated for hyperparameter tuning)
         'lr': 0.01,            # Learning rate (will be tuned)
         'weight_decay': 1e-4,  # Weight decay for regularization (will be tuned)
-        'num_epochs': 100,     # Maximum number of epochs for final training
-        'patience': 15,        # Patience for early stopping in final training
+        'num_epochs': 500,     # Maximum number of epochs for final training
+        'patience': 100,        # Patience for early stopping in final training
         'batch_size': 32,      # Batch size (for mini-batch training if implemented)
         
         # Hyperparameter tuning settings
@@ -183,13 +196,26 @@ def get_config(model_name='RGCN', dataset_name='abortion'):
         },
 
         'H2GFormer': {
-            'description': 'H2G-Former: Sparse Graph Transformer',
-            'num_heads': 4,
-            'n_layers': 2,
+            'description': 'H2GForme: Sparse Node Transformer from H2GB',
+            'num_heads': 8,
+            'n_layers': 3,
+            'layers_pre_gt': 1,
+            'layers_post_gt': 1,
+            'edge_weight': False,
             'conversation_weight': 0.0,
-            'use_parent_context': False, # Handles context via Sparse Attention
-            'use_label_emb': False,      
-            'num_hops': 1,               
+            'use_parent_context': False,
+            'use_label_emb': False,
+        },
+        'LLM4HeG': {
+            'description': 'LLM4HeG: Large Language Model for Heterophilic Graphs (Frequency Adaptive GCN)',
+            'n_layers': 2,
+            'eps': 0.3,                  # Residual connection weight
+            'alpha_yn': 0.3,             # Regularization parameter for yes/no weights
+            'lambda_reg': 0.1,           # Regularization coefficient
+            'use_label_emb': False,       # Optional label embedding
+            'conversation_weight': 0.0,   # Not used in LLM4HeG
+            'use_parent_context': False,  # Handled via frequency adaptive mechanism
+            'patience': 0,  # Higher patience for complex models that need more time to converge
         }
     }
     
@@ -329,7 +355,7 @@ def print_config(config):
     
     print(f"\n🔧 3-WAY SPLIT: Train={config.get('train_ratio', 0.6)*100:.0f}%, "
           f"Val={config.get('val_ratio', 0.2)*100:.0f}%, Test={config.get('test_ratio', 0.2)*100:.0f}%")
-    print(f"🎯 HYPERPARAMETER TUNING: {config.get('tuning_epochs', 50)} epochs, "
+    print(f"🎯 HYPERPARAMETER TUNING: {config.get('tuning_epochs', 500)} epochs, "
           f"max {config.get('max_tuning_trials', 20)} trials")
     
     print("=" * 60)
