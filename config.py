@@ -41,12 +41,12 @@ HYPERPARAMETER_SEARCH_SPACES = {
         'conversation_weight': [0.2, 0.3, 0.4]
     },
     'H2GFormer': {
-        'lr': [0.01, 0.005, 0.001, 5e-4, 1e-4],
-        'weight_decay': [1e-5, 1e-4, 1e-3],
-        'dropout': [0.1, 0.3, 0.5],
-        'hidden_size': [128], # [128, 256, 512]
-        'n_layers': [1], # [1, 2, 3, 4]
-        'num_heads': [2], # [2, 4, 8, 16]
+        'lr': [], # [0.01, 0.005, 0.001, 5e-4, 1e-4],
+        'weight_decay': [], # [1e-5, 1e-4, 1e-3],
+        'dropout': [], # [0.1, 0.3, 0.5],
+        'hidden_size': [128, 256, 512], # [128, 256, 512]
+        'n_layers': [1, 2, 3, 4], # [1, 2, 3, 4]
+        'num_heads': [2, 4, 8, 16], # [2, 4, 8, 16]
         'layers_pre_gt': [1],
         'layers_post_gt': [1],
         'edge_weight': [True],
@@ -80,13 +80,13 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
         raise ValueError(f"Unknown model for hyperparameter search: {model_name}")
     
     search_space = HYPERPARAMETER_SEARCH_SPACES[model_name].copy()
-    # curr_params = {
-    #     "abortion": {"lr": [0.001], "weight_decay": [1e-5], "dropout": [0.5], "hidden_size": [512]},
-    #     "capitalism": {"lr": [0.005], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]},
-    #     "lgbtq": {"lr": [0.01], "weight_decay": [1e-3], "dropout": [0.3], "hidden_size": [512]},
-    #     "religion":  {"lr": [0.005], "weight_decay": [1e-4], "dropout": [0.5], "hidden_size": [512]},
-    #     "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1], "hidden_size": [512]}
-    # }
+    curr_params = {
+        "abortion": {"lr": [0.001], "weight_decay": [1e-5], "dropout": [0.1]},
+        "capitalism": {"lr": [0.005], "weight_decay": [1e-3], "dropout": [0.3]},
+        "lgbtq": {"lr": [0.01], "weight_decay": [1e-4], "dropout": [0.5]},
+        "religion":  {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.5]},
+        "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1]}
+    }
     curr_params = {}
     if model_name in ["H2GFormer"]:
         if dataset_name in curr_params:
