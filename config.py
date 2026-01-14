@@ -87,8 +87,8 @@ def get_hyperparameter_search_space(model_name, dataset_name=None):
         "religion":  {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.5]},
         "trump": {"lr": [0.01], "weight_decay": [1e-5], "dropout": [0.1]}
     }
-    curr_params = {}
-    if model_name in ["H2GFormer"]:
+    # curr_params = {}
+    if model_name in {"H2GFormer"}:
         if dataset_name in curr_params:
             search_space.update(curr_params[dataset_name])
 
