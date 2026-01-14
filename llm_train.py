@@ -2,14 +2,20 @@ import json
 import os
 import time
 import random
-import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
 import requests
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, f1_score
 import re
 # import google.generativeai as genai
+
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_KEY = "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"
+
 
 class OpinionPredictor:
     """LLM-based opinion predictor with conversation-aware analysis."""
@@ -28,6 +34,9 @@ class OpinionPredictor:
             self.delay = 1.0
         elif self.api_provider == "openai":
             self.base_url = "https://api.openai.com/v1"
+            self.delay = 0.5
+        elif self.api_provider == "openrouter":
+            self.base_url = "https://openrouter.ai/api/v1"
             self.delay = 0.5
         else:  # groq
             self.base_url = "https://api.groq.com/openai/v1"
@@ -287,7 +296,7 @@ FINAL ANSWER: [Select exactly one category from the available categories' list a
                         "temperature": 0.0,
                         "top_p": 1.0
                     }
-                    
+
                     response = requests.post(f"{self.base_url}/chat/completions", 
                                            headers=headers, json=data, timeout=60)
                     response.raise_for_status()
@@ -917,40 +926,43 @@ if __name__ == "__main__":
     print("🚀 CONVERSATION-AWARE LLM OPINION PREDICTOR")
     print("Enhanced with parent content and conversation context analysis!")
     print("="*70)
-
-    # Your Together AI API key
-    TOGETHER_API_KEY = ""  # Replace with your actual key
     
     # Choose API provider and models
-    API_PROVIDER = "together"  # Options: "together", "gemini", "openai", "groq"
-    
-    if API_PROVIDER == "together":
-        # BUDGET-FRIENDLY OPTIONS (sorted by cost):
-        MODELS = [
-            # "meta-llama/Llama-3-8b-chat-hf", 
-            # "deepseek-ai/DeepSeek-R1-0528-tput",
-            "deepseek-ai/DeepSeek-V3",
-            "moonshotai/Kimi-K2-Instruct"
-        ]
-        API_KEY = ""  # Replace with your actual key
-        print("💰 Using Together AI with budget-friendly models!")
-        print("🎯 Estimated cost for 4000 requests:")
-        print("   • Llama 3.2 3B Turbo: ~$0.12")
-        print("   • Llama 3.1 8B Turbo: ~$0.36") 
-        print("   • DeepSeek R1 Distill: ~$0.36")
-        
-    elif API_PROVIDER == "gemini":
-        MODELS = ["gemini-1.5-flash"]
-        API_KEY = "your_gemini_api_key_here"
-    elif API_PROVIDER == "openai":
-        MODELS = ["gpt-4o-mini"]
-        API_KEY = ""
-    else:  # groq
-        MODELS = ["llama3-70b-8192", "gemma2-9b-it"]
-        API_KEY = "your_groq_api_key_here"
+    API_PROVIDER = "openrouter"  # Options: "together", "gemini", "openai", "groq", "openrouter"
+
+    match API_PROVIDER:
+        case "together":
+            MODELS = [
+                # "meta-llama/Llama-3-8b-chat-hf",
+                # "deepseek-ai/DeepSeek-R1-0528-tput",
+                "deepseek-ai/DeepSeek-V3",
+                "moonshotai/Kimi-K2-Instruct"
+            ]
+            API_KEY = ""  # Replace with your actual key
+            print("💰 Using Together AI with budget-friendly models!")
+            print("🎯 Estimated cost for 4000 requests:")
+            print("   • Llama 3.2 3B Turbo: ~$0.12")
+            print("   • Llama 3.1 8B Turbo: ~$0.36") 
+            print("   • DeepSeek R1 Distill: ~$0.36")
+            print("   • Kimi K2 Instruct: ~$0.36")
+        case "gemini":
+            MODELS = ["gemini-1.5-flash"]
+            API_KEY = "your_gemini_api_key_here"
+        case "openai":
+            MODELS = ["gpt-4o-mini"]
+            API_KEY = ""
+        case "groq":
+            MODELS = ["llama3-70b-8192", "gemma2-9b-it"]
+            API_KEY = "your_groq_api_key_here"
+        case "openrouter":
+            MODELS = ["qwen/qwen3-235b-a22b-2507"]
+            API_KEY = OPENROUTER_API_KEY
+        case _:
+            raise ValueError(f"Invalid API provider: {API_PROVIDER}")
     
     # Datasets to test
-    DATASETS = ["capitalism", "lgbtq", "religion", "abortion", "trump"]
+    DATASETS = ["lgbtq", "religion", "abortion", "trump"]
+    # DATASETS = ["capitalism"]
     
     if API_KEY == "your_groq_api_key_here":
         print("❌ Please set your Groq API key!")
