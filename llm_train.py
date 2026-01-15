@@ -10,11 +10,10 @@ from sklearn.metrics import accuracy_score, f1_score
 import re
 # import google.generativeai as genai
 
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
-# OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
 class OpinionPredictor:
