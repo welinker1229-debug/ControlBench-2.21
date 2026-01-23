@@ -45,7 +45,13 @@ cd controbench
 pip install -r requirements.txt
 ```
 
-3. **Additional dependencies for specific experiments**
+3. **Set environment variables**
+```bash
+cp .env.example .env
+# fill in API keys (e.g., OPENROUTER_API_KEY, HF_TOKEN, TOGETHER_API_KEY) in .env
+```
+
+4. **Additional dependencies for specific experiments**
 
 For SimCSE experiments:
 ```bash

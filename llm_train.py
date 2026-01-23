@@ -10,11 +10,10 @@ from sklearn.metrics import accuracy_score, f1_score
 import re
 # import google.generativeai as genai
 
-# from dotenv import load_dotenv
-# load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
-# OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
 class OpinionPredictor:
@@ -310,6 +309,20 @@ FINAL ANSWER: [Select exactly one category from the available categories' list a
                     
                     return prediction, tokens
                 
+            except requests.exceptions.HTTPError as e:
+                error_detail = str(e)
+                if hasattr(e.response, 'text'):
+                    try:
+                        error_json = e.response.json()
+                        error_detail = f"{error_detail}\nResponse: {error_json}"
+                    except:
+                        error_detail = f"{error_detail}\nResponse text: {e.response.text[:200]}"
+                error_msg = f"API attempt {attempt + 1} failed: {error_detail}\n"
+                self.log_response(error_msg)
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                else:
+                    return "ERROR", 0
             except Exception as e:
                 error_msg = f"API attempt {attempt + 1} failed: {str(e)}\n"
                 self.log_response(error_msg)
@@ -955,14 +968,13 @@ if __name__ == "__main__":
             MODELS = ["llama3-70b-8192", "gemma2-9b-it"]
             API_KEY = "your_groq_api_key_here"
         case "openrouter":
-            MODELS = ["qwen/qwen3-235b-a22b-2507"]
+            MODELS = ["qwen/qwen3-235b-a22b-thinking-2507"]
             API_KEY = OPENROUTER_API_KEY
         case _:
             raise ValueError(f"Invalid API provider: {API_PROVIDER}")
     
     # Datasets to test
-    DATASETS = ["lgbtq", "religion", "abortion", "trump"]
-    # DATASETS = ["capitalism"]
+    DATASETS = ["capitalism", "lgbtq", "religion", "abortion", "trump"]
     
     if API_KEY == "your_groq_api_key_here":
         print("❌ Please set your Groq API key!")
