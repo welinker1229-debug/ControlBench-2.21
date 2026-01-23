@@ -24,3 +24,4 @@ Cython>=3.0.0
 lxml>=4.6.0
 cryptography>=41.0.5
 pyOpenSSL>=24.0.0
+python-dotenv>=1.2.1
